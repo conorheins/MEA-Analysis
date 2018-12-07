@@ -1,5 +1,6 @@
 %% Batch Processing for Pre-Processing and Spike-Sorting MEA data stored in .nex files
 % 06-12-2018, Conor Heins
+% last edit, 07-12-2018
 
 %% set up paths and directories
 fprintf('Please choose working directory\n');
@@ -8,6 +9,10 @@ cd(working_dir);
 addpath(fullfile(working_dir,'NexReader'))
 addpath(fullfile(working_dir,'plotSpikeRaster_v1.2'));
 
+%% choose folder to write to
+
+fprintf('Please choose results master folder to write to\n')
+results_master_dir = uigetdir();
 
 %% set up parameters for processing
 
@@ -45,7 +50,7 @@ sortParams.thresholds = [1e-3,3e-2]; % standard deviation and spike amplitude th
 text_gen_function = @(string_i,number_i)(sprintf('%s\t%.2f seconds',string_i,number_i));
 proc_stages = {'Data import';'Waveform/Tmsp extraction';'Artifact Removal';'Interp./Peak-Alignment';'Spike Sorting'};
 
-results_fdir = sprintf('results_%s_%s',datestr(now,'mmddyy'),datestr(now,'HH'));
+results_fdir = fullfile(results_master_dir,sprintf('results_%s_%s',datestr(now,'mmddyy'),datestr(now,'HH')));
 
 if exist(results_fdir,'dir') ~= 7
     mkdir(results_fdir)
@@ -68,6 +73,9 @@ for f_i = 1:length(filenames)
     [wfs,tmsp,names,time_taken] = extract_waveforms(nexFile,processParams);
     fprintf('Time taken to extract waveforms from continuous trace: %.2f seconds\n',time_taken)
     processing_times{2} = time_taken;
+    
+    duration_Seconds = length(nexFile.contvars{1}.data)/processParams.Fs;
+    clear nexFile;
     
     % get rid of channels in which no waveforms were detected
     ignore_channels = find(cellfun(@isempty,wfs));
@@ -109,9 +117,22 @@ for f_i = 1:length(filenames)
 
     non_empty_idx = find(~cellfun(@isempty,spike_waveforms));
     for chan_i = 1:length(non_empty_idx)
-        spikes(chan_i).filename = fullfile(master_dir,filenames{f_i});
-        spikes(chan_i).Label = str2double(extractBetween(names{non_empty_idx(chan_i)},'Label_','_ID'));
-        spikes(chan_i).ID = str2double(extractBetween(names{non_empty_idx(chan_i)},'ID_','_Str'));
+        spikes(chan_i).filename = fullfile(master_dir,filenames{f_i});        
+       
+        if exist('extractBetween.m','file') ~= 2
+            split_up = strsplit(names{non_empty_idx(chan_i)},'_');
+            number_idx = find(~isnan(cellfun(@str2double,split_up)));
+            spikes(chan_i).Label = str2double(split_up{number_idx(1)});
+            if number_idx > 1
+                spikes(chan_i).ID = str2double(split_up{number_idx(2)});
+            else
+                spikes(chan_i).ID = 'Ref';
+            end
+        else
+            spikes(chan_i).Label = str2double(extractBetween(names{non_empty_idx(chan_i)},'Label_','_ID'));
+            spikes(chan_i).ID = str2double(extractBetween(names{non_empty_idx(chan_i)},'ID_','_Str'));
+        end
+        
         spikes(chan_i).waveforms = spike_waveforms{non_empty_idx(chan_i)};
         spikes(chan_i).timestamps = spike_tmsp{non_empty_idx(chan_i)};
     end
@@ -121,6 +142,8 @@ for f_i = 1:length(filenames)
     fprintf(textFID,'Full path to nex file: %s\n',fullfile(master_dir,filenames{f_i}));
     lines2write = cellfun(@(str_i,num_i)text_gen_function(str_i,num_i),proc_stages,processing_times,'UniformOutput',false);
     fprintf(textFID,'%s\n',lines2write{:});
+    fprintf(textFID,'Number of active electrodes: %d\n',length(non_empty_idx));
+    fprintf(textFID,'Length of recording: %.2f seconds\n',duration_Seconds);
     fclose(textFID);
     
     all_vars = who;
