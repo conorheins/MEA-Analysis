@@ -70,11 +70,15 @@ for f_i = 1:length(filenames)
     processParams.Fs = nexFile.freq;
     
     %% second step, extract waveforms from electrode traces
-    [wfs,tmsp,names,time_taken] = extract_waveforms(nexFile,processParams);
+    [wfs,tmsp,names,time_taken,online_detect_flag] = extract_waveforms(nexFile,processParams);
     fprintf('Time taken to extract waveforms from continuous trace: %.2f seconds\n',time_taken)
     processing_times{2} = time_taken;
     
-    duration_Seconds = length(nexFile.contvars{1}.data)/processParams.Fs;
+    try
+        duration_Seconds = length(nexFile.contvars{1}.data)/processParams.Fs;
+    catch
+        duration_Seconds = max(cell2mat(tmsp))/processParams.Fs; 
+    end
     clear nexFile;
     
     % get rid of channels in which no waveforms were detected
@@ -116,6 +120,7 @@ for f_i = 1:length(filenames)
     %% save sorted spikes results, create metadata file, etc.
 
     non_empty_idx = find(~cellfun(@isempty,spike_waveforms));
+
     for chan_i = 1:length(non_empty_idx)
         spikes(chan_i).filename = fullfile(master_dir,filenames{f_i});        
        
@@ -144,19 +149,25 @@ for f_i = 1:length(filenames)
     fprintf(textFID,'%s\n',lines2write{:});
     fprintf(textFID,'Number of active electrodes: %d\n',length(non_empty_idx));
     fprintf(textFID,'Length of recording: %.2f seconds\n',duration_Seconds);
+    if online_detect_flag
+        fprintf(textFID,'Spikes were detected online\n');
+    end 
     fclose(textFID);
     
     all_vars = who;
     param_var_indices = find(~cellfun(@isempty,strfind(all_vars,'Params')));
     param_vars = all_vars(param_var_indices);
     
-    vars_to_save = ['spikes';param_vars];
+    if exist('spikes','var')
+        vars_to_save = ['spikes';param_vars];
+    else
+        vars_to_save = param_vars;
+    end
     
     save(fullfile(results_fdir,sprintf('%s_sorted.mat',components{end}(1:end-4))),vars_to_save{:},'-v7.3');
     
     clearvars spikes;
          
-      
 end
   
    

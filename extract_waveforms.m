@@ -1,4 +1,4 @@
-function [ wfs,tmsp,names,proc_time ] = extract_waveforms(nexFile,processParams)
+function [ wfs,tmsp,names,proc_time,online_detect_flag ] = extract_waveforms(nexFile,processParams)
 %extract_waveforms: From voltage time-series, use threshold-crossing and
 %user-given  pre and post millisecond windows to pull out extracellular waveforms
 % and put into two cell arrays: wfs (containing the waveforms from each
@@ -14,6 +14,27 @@ try, post_ms = processParams.post_ms; catch, post_ms = 2; end
 try, sigma_rms = processParams.sigma_rms; catch, sigma_rms = 4; end
 try, filter_flag = processParams.filter_flag; catch, filter_flag = true; end
 
+
+if ~isfield(nexFile,field_name)
+   field_name = 'waves';
+   [channel_idx,names] = determine_channels(nexFile,field_name,'Spike Detector');
+   wfs = cell(length(channel_idx),1);
+   tmsp = cell(length(channel_idx),1);
+   
+   all_chans = nexFile.(field_name);
+   for chan_id = 1:length(channel_idx)    
+        wfs{chan_id} = all_chans{chan_id}.waveforms';
+        tmsp{chan_id} = all_chans{chan_id}.timestamps * Fs;        
+   end
+   
+   online_detect_flag = true;
+   
+   finish = toc;
+   proc_time = finish;
+   
+   return
+   
+end
 
 if filter_flag
     try, high_pass_fs = processParams.high_pass_freq; catch, high_pass_fs = 100; end
@@ -86,6 +107,8 @@ for chan_id = 1:length(channel_idx)
     end
            
 end
+
+online_detect_flag =  false;
 
 
 finish = toc;
