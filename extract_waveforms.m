@@ -113,6 +113,3 @@ online_detect_flag =  false;
 
 finish = toc;
 proc_time = finish;
-
-
-

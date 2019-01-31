@@ -169,11 +169,3 @@ for f_i = 1:length(filenames)
     clearvars spikes;
          
 end
-  
-   
-    
-
-
-
-    
-    

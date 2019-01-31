@@ -51,5 +51,3 @@ for chan = 1:num_chans
 end
 
 time_taken = toc;
-
-    
