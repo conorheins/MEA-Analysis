@@ -97,7 +97,7 @@ inter_hist_height = 20; % distance between population histograms on figure;
 height_vector = 1:inter_hist_height:(num_hists_2plot*inter_hist_height);
 
 
-
+figure(2);
 for f_i = 1:size(filtered_histograms,1)
     
     switch filtered_histograms{f_i,1} 
